@@ -1,0 +1,714 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Hello Maple CT 채점기</title>
+<style>
+@import url("https://fonts.googleapis.com/css2?family=Jua&family=IBM+Plex+Sans+KR:wght@400;500;600&display=swap");
+
+/* Hello Maple 블록 색을 그대로 가져온 토큰 */
+:root {
+  --canvas: #ffffff;
+  --dot: #d8dbe5;
+  --ink: #232a3d;
+  --muted: #6b7286;
+  --line: #e7e9f0;
+
+  --event: #5b7cf6;      /* 이벤트 블록 (파랑) */
+  --event-dark: #4562d9;
+  --action: #45c4c6;     /* 동작 블록 (청록) */
+  --action-dark: #2fa7a9;
+  --control: #9b5de5;    /* 조건·반복 블록 (보라) */
+  --variable: #f08a3d;   /* 변수 블록 (주황) */
+
+  --s0: #f3f1f8;
+  --s1: #e4d7f8;
+  --s2: #c4a5f0;
+  --s3: #9b5de5;
+
+  --display: "Jua", "IBM Plex Sans KR", sans-serif;
+  --body: "IBM Plex Sans KR", "Apple SD Gothic Neo", "Malgun Gothic", sans-serif;
+}
+
+* { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  color: var(--ink);
+  font: 15px/1.6 var(--body);
+  background: var(--canvas);
+  word-break: keep-all;
+}
+
+/* 블록 코딩 작업 화면처럼 점 격자 */
+.canvas {
+  min-height: 100vh;
+  background-image: radial-gradient(var(--dot) 1.2px, transparent 1.3px);
+  background-size: 22px 22px;
+}
+.wrap { max-width: 980px; margin: 0 auto; padding: 48px 20px 72px; }
+
+/* ---------- 머리말 ---------- */
+.intro h1 {
+  margin: 0;
+  font: 40px/1.15 var(--display);
+  letter-spacing: -0.5px;
+}
+.intro p { max-width: 60ch; margin: 10px 0 0; color: var(--muted); }
+
+/* ---------- 블록 입력 ---------- */
+.script { margin: 36px 0 28px; max-width: 640px; }
+
+.block {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  color: #fff;
+  cursor: pointer;
+  outline: none;
+  transition: transform .12s ease, filter .12s ease;
+}
+.block strong { display: block; font: 21px/1.3 var(--display); font-weight: normal; }
+.block small { display: block; opacity: .88; font-size: 13.5px; }
+.block-text { flex: 1; min-width: 0; }
+
+/* 이벤트(모자) 블록 */
+.hat {
+  background: var(--event);
+  padding: 26px 24px 22px;
+  border-radius: 34px 14px 6px 6px;
+  box-shadow: inset 0 -4px 0 var(--event-dark);
+  z-index: 2;
+}
+/* 아래 블록과 맞물리는 돌기 */
+.hat::after {
+  content: "";
+  position: absolute;
+  left: 34px; bottom: -10px;
+  width: 38px; height: 12px;
+  background: var(--event);
+  border-radius: 0 0 8px 8px;
+  box-shadow: inset 0 -4px 0 var(--event-dark);
+}
+.flag {
+  flex: none; width: 46px; height: 46px; border-radius: 50%;
+  background: #fff;
+  -webkit-mask: radial-gradient(circle, #000 64%, transparent 65%);
+          mask: radial-gradient(circle, #000 64%, transparent 65%);
+  position: relative;
+}
+.flag::before {             /* 깃발 */
+  content: ""; position: absolute; left: 16px; top: 11px;
+  width: 3px; height: 24px; background: var(--event); border-radius: 2px;
+}
+.flag::after {
+  content: ""; position: absolute; left: 19px; top: 11px;
+  width: 15px; height: 11px; background: var(--event);
+  border-radius: 0 3px 3px 0;
+}
+
+/* 동작 블록 (안쪽으로 들여 끼워짐) */
+.action {
+  margin-left: 22px;
+  background: var(--action);
+  padding: 22px 22px 20px;
+  border-radius: 6px 6px 12px 12px;
+  box-shadow: inset 0 -4px 0 var(--action-dark);
+}
+.pill {
+  flex: none;
+  padding: 4px 12px;
+  border-radius: 999px;
+  background: #fff;
+  color: var(--action-dark);
+  font-weight: 600;
+  font-size: 13px;
+}
+
+.block:hover { filter: brightness(1.04); }
+.block:focus-visible { box-shadow: 0 0 0 3px #fff, 0 0 0 6px var(--ink); }
+.block.over { transform: translateX(6px); filter: brightness(1.08); }
+
+/* ---------- 도구 줄 ---------- */
+.toolbar {
+  display: flex; justify-content: space-between; align-items: center;
+  flex-wrap: wrap; gap: 14px; margin-bottom: 14px;
+}
+.toggle {
+  display: inline-flex;
+  padding: 4px;
+  background: #fff;
+  border: 1.5px solid var(--line);
+  border-radius: 999px;
+}
+.toggle input { position: absolute; opacity: 0; pointer-events: none; }
+.toggle label {
+  padding: 7px 16px; border-radius: 999px; cursor: pointer;
+  color: var(--muted); font-weight: 500; font-size: 14px;
+}
+.toggle input:checked + label { background: var(--control); color: #fff; }
+.toggle input:focus-visible + label { outline: 2px solid var(--ink); outline-offset: 2px; }
+
+.actions { display: flex; align-items: center; gap: 8px; }
+#count { color: var(--muted); font-size: 14px; margin-right: 6px; }
+button {
+  font: 500 14px/1 var(--body);
+  padding: 10px 16px; border-radius: 10px; cursor: pointer;
+  border: 1.5px solid transparent;
+}
+button.primary { background: var(--ink); color: #fff; }
+button.quiet { background: #fff; border-color: var(--line); color: var(--ink); }
+button:disabled { opacity: .35; cursor: default; }
+button:focus-visible { outline: 2px solid var(--control); outline-offset: 2px; }
+button.link {
+  padding: 0; border: 0; background: none;
+  color: var(--control); font-weight: 600; text-decoration: underline; text-underline-offset: 3px;
+}
+
+/* ---------- 결과 시트 ---------- */
+.sheet {
+  background: #fff;
+  border: 1.5px solid var(--line);
+  border-radius: 16px;
+  overflow: hidden;
+}
+.table-scroll { overflow-x: auto; }
+table.results {
+  width: 100%; min-width: 760px;
+  border-collapse: separate; border-spacing: 0;
+}
+.results th {
+  padding: 12px 6px 10px;
+  font-size: 12.5px; font-weight: 600; color: var(--muted);
+  text-align: center; white-space: nowrap;
+  border-bottom: 1.5px solid var(--line);
+}
+.results th.name, .results td.name { text-align: left; padding-left: 18px; }
+.results td {
+  padding: 6px; text-align: center; white-space: nowrap;
+  border-bottom: 1px solid var(--line);
+}
+.results tbody tr:last-child td { border-bottom: 0; }
+.results td.name { font-weight: 600; }
+.results tr.empty td { padding: 40px 18px; color: var(--muted); text-align: left; }
+
+/* 점수: 보라 조건 블록의 농도로 0–3 */
+td.score {
+  width: 64px;
+  font: 18px/1 var(--display);
+  border: 4px solid #fff;
+  border-radius: 10px;
+}
+.s0 { background: var(--s0); color: #b7aecb; }
+.s1 { background: var(--s1); color: #5d3a91; }
+.s2 { background: var(--s2); color: #3f2170; }
+.s3 { background: var(--s3); color: #fff; }
+td.total { font: 20px/1 var(--display); }
+
+.legend {
+  display: flex; align-items: center; flex-wrap: wrap; gap: 14px;
+  padding: 10px 18px; font-size: 13px; color: var(--muted);
+  border-top: 1.5px solid var(--line); background: #fbfbfd;
+}
+.legend span { display: inline-flex; align-items: center; gap: 6px; }
+.legend i { width: 14px; height: 14px; border-radius: 4px; display: inline-block; }
+.legend em { font-style: normal; margin-left: auto; }
+
+/* ---------- 근거 패널 ---------- */
+.detail {
+  margin-top: 18px;
+  background: #fff;
+  border: 1.5px solid var(--line);
+  border-left: 8px solid var(--control);
+  border-radius: 14px;
+  padding: 20px 24px;
+}
+.detail h3 { margin: 0 0 12px; font: 24px/1.2 var(--display); font-weight: normal; }
+table.evidence { width: 100%; border-collapse: separate; border-spacing: 0; }
+.evidence th, .evidence td { padding: 7px 8px; border-bottom: 1px solid var(--line); text-align: left; vertical-align: middle; }
+.evidence th { width: 170px; font-weight: 600; font-size: 14px; }
+.evidence td.score { width: 48px; text-align: center; font-size: 16px; padding: 6px 0; }
+.detail details { margin-top: 14px; }
+.detail summary { cursor: pointer; font-weight: 600; color: var(--control); }
+.detail ul { margin: 10px 0 0; padding-left: 18px; max-height: 280px; overflow: auto; }
+.detail li { margin: 3px 0; }
+.detail code {
+  background: #fff3ea; color: #b35a17;
+  padding: 1px 6px; border-radius: 5px; font-size: 12.5px;
+}
+.path { color: var(--muted); font-size: 12px; }
+
+/* ---------- 처리 기록 ---------- */
+.logbox { margin-top: 22px; }
+.logbox summary { cursor: pointer; color: var(--muted); font-size: 14px; }
+pre#log {
+  margin: 10px 0 0; padding: 14px; max-height: 200px; overflow: auto;
+  background: #fff; border: 1.5px solid var(--line); border-radius: 12px;
+  font: 12.5px/1.6 var(--body); white-space: pre-wrap; color: var(--muted);
+}
+
+.sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
+
+@media (max-width: 640px) {
+  .wrap { padding-top: 32px; }
+  .intro h1 { font-size: 32px; }
+  .action { margin-left: 12px; }
+  .toolbar { flex-direction: column; align-items: stretch; }
+  .actions { justify-content: flex-end; }
+  .legend em { margin-left: 0; width: 100%; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .block { transition: none; }
+}
+
+</style>
+</head>
+<body>
+<main class="canvas">
+  <div class="wrap">
+
+    <header class="intro">
+      <h1>Hello Maple CT 채점기</h1>
+      <p>교사 템플릿과 학생 .mod를 비교해, 학생이 새로 추가한 블록만 루브릭 0–3점으로 채점합니다. 파일은 이 브라우저 안에서만 읽고 어디에도 보내지 않습니다.</p>
+    </header>
+
+    <!-- 블록처럼 쌓이는 입력 영역: 이벤트(파랑) 아래 동작(청록)이 끼워짐 -->
+    <section class="script" aria-label="파일 넣기">
+      <div class="block hat drop" id="teacherZone" tabindex="0" role="button" aria-describedby="teacherName">
+        <span class="flag" aria-hidden="true"></span>
+        <div class="block-text">
+          <strong>교사 템플릿 .mod를 놓았을 때</strong>
+          <small id="teacherName">클릭하거나 파일을 끌어다 놓으세요</small>
+        </div>
+        <input type="file" id="teacherInput" accept=".mod" hidden>
+      </div>
+
+      <div class="block action drop" id="studentZone" tabindex="0" role="button">
+        <div class="block-text">
+          <strong>학생 .mod 파일들을 채점하기</strong>
+          <small>여러 개를 한 번에 넣을 수 있어요. 파일 이름이 학생 ID로 쓰입니다.</small>
+        </div>
+        <span class="pill" aria-hidden="true">.mod</span>
+        <input type="file" id="studentInput" accept=".mod" multiple hidden>
+      </div>
+    </section>
+
+    <section class="toolbar">
+      <div class="toggle" role="radiogroup" aria-label="채점 범위">
+        <input type="radio" name="mode" id="modeDiff" checked>
+        <label for="modeDiff">새로 추가한 블록만</label>
+        <input type="radio" name="mode" id="modeFull">
+        <label for="modeFull">프로젝트 전체</label>
+      </div>
+      <div class="actions">
+        <span id="count"></span>
+        <button id="clearBtn" class="quiet">결과 지우기</button>
+        <button id="csvBtn" class="primary" disabled>CSV 내려받기</button>
+      </div>
+    </section>
+
+    <section class="sheet">
+      <div class="table-scroll">
+        <table class="results">
+          <thead>
+            <tr>
+              <th class="name">학생</th>
+              <th title="Abstraction">추상화</th>
+              <th title="Logic">논리</th>
+              <th title="Parallelism">병렬</th>
+              <th title="User Interactivity">상호작용</th>
+              <th title="Data Representation">데이터</th>
+              <th title="Flow Control">흐름</th>
+              <th title="Synchronization">동기화</th>
+              <th title="Operators">연산자</th>
+              <th>총점</th>
+              <th>새 블록</th>
+              <th><span class="sr">근거</span></th>
+            </tr>
+          </thead>
+          <tbody id="resultBody">
+            <tr class="empty"><td colspan="12">학생 파일을 올리면 결과가 여기에 표시됩니다.</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <div class="legend" aria-hidden="true">
+        <span><i class="s0"></i>0</span><span><i class="s1"></i>1</span>
+        <span><i class="s2"></i>2</span><span><i class="s3"></i>3</span>
+        <em>점수 칸에 마우스를 올리면 근거 블록이 보입니다</em>
+      </div>
+    </section>
+
+    <section id="detail" class="detail" hidden></section>
+
+    <details class="logbox">
+      <summary>처리 기록</summary>
+      <pre id="log"></pre>
+    </details>
+
+  </div>
+</main>
+
+<script>
+/* =========================================================
+ * Hello Maple CT 자동채점 도구 (v3: .mod 블록 객체 비교)
+ * - 교사 템플릿 .mod와 학생 .mod를 비교해 "학생이 새로 추가한 블록"만 채점
+ * - 블록 고유 ID 기준: 템플릿 블록은 옮기거나 끼워 넣어도 제외됨
+ * - 루브릭: Von Wangenheim et al. (2018), 0~3점, 충족한 최고 수준
+ * ========================================================= */
+
+/* ---------- 1. 루브릭 대응표 (필요하면 여기만 수정) ---------- */
+const RUBRIC = {
+  // 사용자 정의 블록(함수)로 볼 컴포넌트 이름
+  customBlockComps: ["BlockFunctionEntity", "BlockFunctionImplement", "FunctionLogic"],
+  cloneTypes: ["Clone", "OnClone", "DestroyClone", "DestroyCloneAll"],
+
+  greenFlag: ["OnBeginPlay"],
+  keyEvents: ["OnKeyDown", "OnKeyHold", "OnKeyUp"],
+  clickEvents: ["OnMouseClick", "OnMouseRelease", "OnTouchDownEntity", "OnTouchReleaseEntity"],
+  askTypes: ["InputPopup"],
+  soundTypes: ["PlaySound", "PlaySoundState", "PlaySoundWhileSeconds", "PlaySoundAndWait",
+    "PlaySoundTimePositionAndWait", "StartBGM"],
+
+  messageEvents: ["OnGlobalEvent"],
+  sensingConds: ["conditionTrigger", "conditionKeyDown", "conditionMouse"],
+
+  actorProps: ["TranslateX", "TranslateY", "SetPositionX", "SetPositionY", "SetPositionXY",
+    "MoveTo", "Move", "MoveDirection", "Tween", "TweenToPosition", "TweenToTarget", "Rotate",
+    "TweenRotate", "SetRotation", "TweenToRotation", "LookRotation", "AddScale", "AddScaleXY",
+    "SetScale", "ResetScale", "FlipX", "FlipY", "VisibleOn", "VisibleOff", "ColorChange",
+    "PlayAnimation", "Teleport"],
+  variableOps: ["SetValue", "SumValue", "ShowValue", "SetData", "SetDataRandom", "getValue",
+    "SetTextValue", "AppendToText", "InsertAt0ToText", "ClearTextValue", "getTextValue"],
+  listOps: ["listAddValue", "listDeleteValue", "listInsertValue", "listSetValue", "listShow",
+    "listGetValue", "listGetValueCount", "conditionListHasValue"],
+
+  ifThen: ["ifCheck"],
+  ifElse: ["ifElseCheck", "loopElseCondition"],
+  logicalOps: ["conditionAndOr", "conditionNot"],
+
+  loops: ["loopCount", "infiniteLoop"],
+  repeatUntil: ["loopCondition", "loopElseCondition"],
+
+  wait: ["Wait"],
+  sayWithTime: ["ChatBalloonWait"],
+  // 'wait until': 교사 채점 기준에 따라 '묻고 대답 기다리기'(대답이 올 때까지 대기)와 '신호 보내고 기다리기'
+  waitUntil: ["InputPopup", "GlobalEventWait"],
+
+  // 'custom blocks': 교사 채점 기준에 따라 학생이 추가한 신호 보내기/받기를 사용자 정의로 인정
+  customSignals: ["GlobalEvent", "GlobalEventWait", "OnGlobalEvent"],
+
+  // 연산자 종류(같은 그룹은 한 종류로 셈). 그리고·또는은 서로 다른 종류로 셈
+  operatorGroups: {
+    "산술": ["sum", "mod", "power"],
+    "난수": ["random"],
+    "비교": ["conditionValues", "conditionDataToData"],
+    "그리고": ["conditionAndOr:그리고"],
+    "또는": ["conditionAndOr:또는"],
+    "부정": ["conditionNot"],
+    "문자열": ["stringLength", "stringSum", "getChar", "subString", "getStringIndex",
+      "replaceString", "upperString"],
+  },
+  // '~만큼 더하기'(SumValue)를 산술 연산자로도 셀지 (교사 기준 확인 후 true로 바꿀 수 있음)
+  sumValueAsArithmetic: false,
+};
+
+const LABELS = {
+  OnBeginPlay: "시작할 때", OnKeyDown: "키를 눌렀을 때", OnKeyHold: "키를 누르고 있을 때",
+  OnKeyUp: "키를 뗄 때", OnMouseClick: "마우스를 클릭했을 때", OnTouchDownEntity: "오브젝트를 클릭했을 때",
+  OnGlobalEvent: "신호를 받았을 때", OnClone: "복제본이 생성되었을 때", OnMapEnter: "맵이 전환되었을 때",
+  ifCheck: "만일 ~이라면", ifElseCheck: "만일 ~이라면 / 아니면", infiniteLoop: "무한 반복하기",
+  loopCount: "~번 반복하기", loopCondition: "~할 때까지 반복하기", conditionAndOr: "그리고/또는",
+  conditionNot: "~가 아니다", conditionValues: "값 비교", conditionTrigger: "~에 닿았는가?",
+  ChatBalloon: "말하기", ChatBalloonWait: "~초 동안 말하기", Wait: "~초 기다리기",
+  InputPopup: "묻고 대답 기다리기", SetValue: "변수 ~로 정하기", SumValue: "변수 ~만큼 더하기",
+  ShowValue: "변수 보이기", getValue: "변수 값", GlobalEvent: "신호 보내기",
+  GlobalEventWait: "신호 보내고 기다리기", VisibleOn: "보이기", Break: "반복 멈추기", VisibleOff: "숨기기",
+  SetControl: "아바타로 만들기", Clone: "복제하기", answer: "대답", input: "입력값", number: "숫자",
+};
+
+/* ---------- 2. protobuf 최소 파서 ---------- */
+function readVarint(b, i) {
+  let r = 0, mul = 1, x;
+  do { x = b[i++]; r += (x & 0x7f) * mul; mul *= 128; } while (x >= 0x80);
+  return [r, i];
+}
+function parseMsg(b) {
+  const out = []; let i = 0;
+  while (i < b.length) {
+    let k; [k, i] = readVarint(b, i);
+    const f = Math.floor(k / 8), t = k & 7; let v;
+    if (t === 0) { [v, i] = readVarint(b, i); }
+    else if (t === 2) { let l; [l, i] = readVarint(b, i); v = b.subarray(i, i + l); i += l; }
+    else if (t === 1) { v = b.subarray(i, i + 8); i += 8; }
+    else if (t === 5) { v = b.subarray(i, i + 4); i += 4; }
+    else throw new Error("알 수 없는 protobuf 형식 (wire type " + t + ")");
+    out.push({ f, t, v });
+  }
+  return out;
+}
+const UTF8 = new TextDecoder("utf-8");
+const str = (u8) => UTF8.decode(u8);
+
+/* ---------- 3. .mod → 블록 목록 ---------- */
+function parseValues(s) {
+  const o = {};
+  (s || "").split("\n").forEach((line) => {
+    const p = line.split("\t");
+    if (p.length >= 4) o[p[1]] = p.slice(3).join("\t");
+  });
+  return o;
+}
+
+function extractBlocks(u8) {
+  const blocks = new Map(); // id -> block
+  for (const top of parseMsg(u8)) {
+    if (top.f !== 2 || top.t !== 2) continue;
+    const entry = parseMsg(top.v);
+    const typeF = entry.find((x) => x.f === 4);
+    const bodyF = entry.find((x) => x.f === 6);
+    if (!typeF || !bodyF) continue;
+    const ctype = str(typeF.v);
+    if (ctype !== "x-mod/map" && ctype !== "x-mod/ui") continue;
+    for (const ent of parseMsg(bodyF.v)) {
+      if (ent.f !== 3 || ent.t !== 2) continue;
+      const fields = {};
+      for (const x of parseMsg(ent.v)) fields[x.f] = x.v;
+      if (!fields[1] || !fields[3]) continue;
+      let j; try { j = JSON.parse(str(fields[3])); } catch (e) { continue; }
+      const comps = (j["@components"] || []).filter(
+        (c) => c["@type"] && c["@type"].startsWith("script.") && c["@type"] !== "script.MapEntity");
+      if (!comps.length) continue;
+      const c = comps[0];
+      blocks.set(str(fields[1]), {
+        id: str(fields[1]),
+        path: fields[2] ? str(fields[2]) : j.path || "",
+        comp: c["@type"].slice(7),
+        type: c.type || "",
+        values: parseValues(c.values),
+      });
+    }
+  }
+  return blocks;
+}
+
+/* ---------- 4. 새 블록 선별 ---------- */
+function newBlocks(teacher, student) {
+  if (!teacher) return [...student.values()];          // 템플릿 없음 → 전체 채점
+  return [...student.values()].filter((b) => !teacher.has(b.id));
+}
+
+/* ---------- 5. 루브릭 채점 ---------- */
+function scoreBlocks(nb, allStudent) {
+  const has = (list) => nb.filter((b) => list.includes(b.type));
+  const hasComp = (list) => nb.filter((b) => list.includes(b.comp));
+  const scripts = nb.filter((b) => b.comp === "EventTrigger");
+  const ofType = (list) => scripts.filter((s) => list.includes(s.type));
+  const fmt = (arr) => [...new Set(arr.map((b) => LABELS[b.type] || b.type || b.comp))].join(", ");
+  const R = RUBRIC, S = {}, E = {};
+  const set = (k, lv, ev) => { if (lv > (S[k] || 0)) { S[k] = lv; E[k] = ev; } };
+  Object.keys({ Abstraction: 0, Logic: 0, Parallelism: 0, UserInteractivity: 0,
+    DataRepresentation: 0, FlowControl: 0, Synchronization: 0, Operators: 0 })
+    .forEach((k) => { S[k] = 0; E[k] = ""; });
+
+  // 스크립트 안의 블록 (경로 접두사 기준)
+  const inside = (s) => [...allStudent.values()].filter((b) => b.path.startsWith(s.path + "/"));
+
+  // Abstraction
+  if (scripts.length >= 2) set("Abstraction", 1, `새 스크립트 ${scripts.length}개`);
+  if (hasComp(R.customBlockComps).length) set("Abstraction", 2, "사용자 정의 블록");
+  const sig = nb.filter((b) => R.customSignals.includes(b.type));
+  if (sig.length) set("Abstraction", 2, "학생이 만든 신호: " +
+    [...new Set(sig.map((b) => b.values.eventName).filter(Boolean))].join(", "));
+  if (has(R.cloneTypes).length) set("Abstraction", 3, fmt(has(R.cloneTypes)));
+
+  // Logic
+  if (has(R.ifThen).length) set("Logic", 1, fmt(has(R.ifThen)));
+  if (has(R.ifElse).length) set("Logic", 2, fmt(has(R.ifElse)));
+  if (has(R.logicalOps).length) set("Logic", 3, fmt(has(R.logicalOps)));
+
+  // Parallelism
+  if (ofType(R.greenFlag).length >= 2) set("Parallelism", 1, `시작할 때 스크립트 ${ofType(R.greenFlag).length}개`);
+  const keyCount = {};
+  ofType(["OnKeyDown"]).forEach((s) => { const k = s.values.keyCode || "?"; keyCount[k] = (keyCount[k] || 0) + 1; });
+  const sameKey = Object.entries(keyCount).find(([, n]) => n >= 2);
+  if (sameKey) set("Parallelism", 2, `같은 키(${sameKey[0]}) 스크립트 ${sameKey[1]}개`);
+  if (ofType(R.clickEvents).length >= 2) set("Parallelism", 2, `클릭 스크립트 ${ofType(R.clickEvents).length}개`);
+  const sensingScripts = scripts.filter((s) => inside(s).some((b) => R.sensingConds.includes(b.type)));
+  if (ofType(R.messageEvents).length >= 2) set("Parallelism", 3, `신호 받기 스크립트 ${ofType(R.messageEvents).length}개`);
+  else if (has(["Clone", "OnClone"]).length) set("Parallelism", 3, "복제본 생성");
+  else if (sensingScripts.length >= 2) set("Parallelism", 3, `감지 스크립트 ${sensingScripts.length}개`);
+
+  // User Interactivity
+  if (ofType(R.greenFlag).length) set("UserInteractivity", 1, "시작할 때");
+  const ui2 = [...ofType(R.keyEvents), ...ofType(R.clickEvents), ...has(R.askTypes)];
+  if (ui2.length) set("UserInteractivity", 2, fmt(ui2));
+  if (has(R.soundTypes).length) set("UserInteractivity", 3, fmt(has(R.soundTypes)));
+
+  // Data Representation
+  if (has(R.actorProps).length) set("DataRepresentation", 1, fmt(has(R.actorProps)));
+  if (has(R.variableOps).length) set("DataRepresentation", 2, fmt(has(R.variableOps)));
+  if (has(R.listOps).length) set("DataRepresentation", 3, fmt(has(R.listOps)));
+
+  // Flow Control
+  const actions = nb.filter((b) => b.comp === "ActionRobot");
+  if (actions.length >= 2) set("FlowControl", 1, `동작 블록 ${actions.length}개 순서 배치`);
+  if (has(R.loops).length) set("FlowControl", 2, fmt(has(R.loops)));
+  if (has(R.repeatUntil).length) set("FlowControl", 3, fmt(has(R.repeatUntil)));
+
+  // Synchronization
+  if (has(R.wait).length) set("Synchronization", 1, fmt(has(R.wait)));
+  if (has(R.sayWithTime).length) set("Synchronization", 2, fmt(has(R.sayWithTime)));
+  if (has(R.waitUntil).length) set("Synchronization", 3, fmt(has(R.waitUntil)));
+
+  // Operators
+  const opKey = (b) => b.type === "conditionAndOr" ? `conditionAndOr:${b.values.andType || ""}` : b.type;
+  const groups = Object.entries(R.operatorGroups)
+    .filter(([g, list]) => nb.some((b) => list.includes(opKey(b))) ||
+      (g === "산술" && R.sumValueAsArithmetic && nb.some((b) => b.type === "SumValue")))
+    .map(([g]) => g);
+  const n = groups.length;
+  if (n) set("Operators", n >= 3 ? 3 : n, `${n}종류: ${groups.join(", ")}`);
+
+  const total = Object.values(S).reduce((a, b) => a + b, 0);
+  return { scores: S, evidence: E, total };
+}
+
+/* ---------- 6. 화면 ---------- */
+const CRITERIA = [
+  ["Abstraction", "Abstraction"], ["Logic", "Logic"], ["Parallelism", "Parallelism"],
+  ["UserInteractivity", "User Interactivity"], ["DataRepresentation", "Data Representation"],
+  ["FlowControl", "Flow Control"], ["Synchronization", "Synchronization"], ["Operators", "Operators"],
+];
+const state = { teacher: null, teacherName: "", results: [] };
+
+async function readFile(file) { return new Uint8Array(await file.arrayBuffer()); }
+
+function esc(s) {
+  return String(s).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+}
+
+function log(msg) {
+  const el = document.getElementById("log");
+  el.textContent += msg + "\n"; el.scrollTop = el.scrollHeight;
+}
+
+async function loadTeacher(file) {
+  try {
+    state.teacher = extractBlocks(await readFile(file));
+    state.teacherName = file.name;
+    document.getElementById("teacherName").textContent = `${file.name} 불러옴 (블록 ${state.teacher.size}개)`;
+    log(`[교사] ${file.name}: 블록 ${state.teacher.size}개`);
+    if (state.results.length) rescoreAll();
+  } catch (e) { log(`[오류] 교사 파일을 읽지 못했습니다: ${e.message}`); }
+}
+
+async function addStudents(files) {
+  for (const file of files) {
+    try {
+      const blocks = extractBlocks(await readFile(file));
+      state.results.push({ name: file.name.replace(/\.mod$/i, ""), blocks });
+      log(`[학생] ${file.name}: 블록 ${blocks.size}개`);
+    } catch (e) { log(`[오류] ${file.name}: ${e.message}`); }
+  }
+  rescoreAll();
+}
+
+function rescoreAll() {
+  const useTemplate = document.getElementById("modeDiff").checked;
+  if (useTemplate && !state.teacher && state.results.length)
+    log("[안내] 교사 템플릿이 없어 전체 프로젝트 기준으로 채점합니다.");
+  state.results.forEach((r) => {
+    const t = useTemplate ? state.teacher : null;
+    r.added = newBlocks(t, r.blocks);
+    Object.assign(r, scoreBlocks(r.added, r.blocks));
+  });
+  render();
+}
+
+function render() {
+  const body = document.getElementById("resultBody");
+  if (!state.results.length) {
+    body.innerHTML = '<tr class="empty"><td colspan="12">학생 파일을 올리면 결과가 여기에 표시됩니다.</td></tr>';
+    document.getElementById("csvBtn").disabled = true;
+    document.getElementById("count").textContent = "";
+    return;
+  }
+  body.innerHTML = state.results.map((r, i) => `
+    <tr>
+      <td class="name">${esc(r.name)}</td>
+      ${CRITERIA.map(([k]) => `<td class="score s${r.scores[k]}" title="${esc(r.evidence[k] || "해당 블록 없음")}">${r.scores[k]}</td>`).join("")}
+      <td class="total">${r.total}</td>
+      <td>${r.added.length}</td>
+      <td><button class="link" data-i="${i}">근거 보기</button></td>
+    </tr>`).join("");
+  body.querySelectorAll("button.link").forEach((b) => b.addEventListener("click", () => showDetail(+b.dataset.i)));
+  document.getElementById("csvBtn").disabled = !state.results.length;
+  document.getElementById("count").textContent = state.results.length ? `${state.results.length}명` : "";
+}
+
+function showDetail(i) {
+  const r = state.results[i];
+  const rows = CRITERIA.map(([k, label]) =>
+    `<tr><th>${label}</th><td class="score s${r.scores[k]}">${r.scores[k]}</td><td>${esc(r.evidence[k] || "해당 블록 없음")}</td></tr>`).join("");
+  const list = r.added.length
+    ? r.added.map((b) => `<li><code>${esc(b.comp)}</code> ${esc(LABELS[b.type] || b.type || "")} <span class="path">${esc(b.path)}</span></li>`).join("")
+    : "<li>새로 추가한 블록이 없습니다.</li>";
+  document.getElementById("detail").innerHTML = `
+    <h3>${esc(r.name)} 학생, 총점 ${r.total}/24</h3>
+    <table class="evidence">${rows}</table>
+    <details><summary>새로 추가된 블록 ${r.added.length}개</summary><ul>${list}</ul></details>`;
+  document.getElementById("detail").hidden = false;
+}
+
+function downloadCSV() {
+  const head = ["student", ...CRITERIA.map(([, l]) => l), "Total", "NewBlocks",
+    ...CRITERIA.map(([, l]) => l + " evidence")];
+  const lines = [head, ...state.results.map((r) => [r.name, ...CRITERIA.map(([k]) => r.scores[k]),
+    r.total, r.added.length, ...CRITERIA.map(([k]) => r.evidence[k] || "")])]
+    .map((row) => row.map((c) => `"${String(c).replace(/"/g, '""')}"`).join(","));
+  const blob = new Blob(["﻿" + lines.join("\r\n")], { type: "text/csv;charset=utf-8" });
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(blob); a.download = "ct_scores.csv"; a.click();
+}
+
+function wireDrop(zoneId, inputId, handler, multiple) {
+  const zone = document.getElementById(zoneId), input = document.getElementById(inputId);
+  zone.addEventListener("click", () => input.click());
+  zone.addEventListener("keydown", (ev) => {
+    if (ev.key === "Enter" || ev.key === " ") { ev.preventDefault(); input.click(); }
+  });
+  input.addEventListener("change", () => { handler(multiple ? [...input.files] : input.files[0]); input.value = ""; });
+  ["dragenter", "dragover"].forEach((e) => zone.addEventListener(e, (ev) => { ev.preventDefault(); zone.classList.add("over"); }));
+  ["dragleave", "drop"].forEach((e) => zone.addEventListener(e, (ev) => { ev.preventDefault(); zone.classList.remove("over"); }));
+  zone.addEventListener("drop", (ev) => {
+    const files = [...ev.dataTransfer.files].filter((f) => /\.mod$/i.test(f.name));
+    if (!files.length) return log("[안내] .mod 파일만 올릴 수 있습니다.");
+    handler(multiple ? files : files[0]);
+  });
+}
+
+if (typeof document !== "undefined") {
+  document.addEventListener("DOMContentLoaded", init);
+  if (document.readyState !== "loading") init();
+}
+let inited = false;
+function init() {
+  if (inited) return; inited = true;
+  wireDrop("teacherZone", "teacherInput", loadTeacher, false);
+  wireDrop("studentZone", "studentInput", addStudents, true);
+  document.getElementById("csvBtn").addEventListener("click", downloadCSV);
+  document.getElementById("clearBtn").addEventListener("click", () => {
+    state.results = []; document.getElementById("detail").hidden = true; render(); log("[초기화] 학생 결과를 지웠습니다.");
+  });
+  document.querySelectorAll("input[name=mode]").forEach((r) => r.addEventListener("change", rescoreAll));
+}
+
+/* Node 테스트용 */
+if (typeof module !== "undefined") module.exports = { extractBlocks, newBlocks, scoreBlocks };
+
+</script>
+</body>
+</html>
